@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "plantrace"
+version = "0.0.1a0"
+description = "AI work provenance graph (Phase 1A pre-alpha)"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+authors = [{ name = "JrJuni" }]
+keywords = ["claude-code", "notion", "mcp", "provenance"]
+dependencies = []
+
+[project.optional-dependencies]
+# Phase 1B classifier (gated). Not installed by default.
+embedding = [
+    "chromadb>=0.5.0",
+    "sentence-transformers>=3.0.0",
+]
+# Phase 1B/2 Notion projection (separate so Phase 1A local-only stays dependency-free).
+notion = [
+    "httpx>=0.27.0",
+]
+dev = [
+    "pytest>=8.0",
+]
+
+[project.scripts]
+plantrace-hook = "plantrace.hooks.exit_plan_mode:main"
+plantrace-why = "plantrace.slash.why:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

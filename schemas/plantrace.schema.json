@@ -1,0 +1,140 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/JrJuni/plantrace/schemas/plantrace.schema.json",
+  "title": "plantrace runtime configuration",
+  "description": "Config file lives at .claude/plantrace.json in a project root. Schema and examples are repo-visible (here and in examples/). v0.1.",
+  "type": "object",
+  "required": ["schema_version", "project_type", "notion", "local", "classifier"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1,
+      "description": "Bumped on breaking config-shape changes. v0.1 ships schema_version 1."
+    },
+    "project_type": {
+      "type": "string",
+      "enum": ["web-app", "mobile-app", "ml-system", "cli-tool", "generic"],
+      "description": "Default lens preset is picked based on this. All values currently activate the Software lens; future lens packs may map differently."
+    },
+    "notion": {
+      "type": "object",
+      "required": ["workspace_id", "node_data_source_id", "plan_artifact_parent_page_id", "api_version"],
+      "additionalProperties": false,
+      "properties": {
+        "workspace_id": { "type": "string", "minLength": 1 },
+        "node_data_source_id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Notion data_source (not database) that holds canonical PlanNode rows. Schema properties live on the data_source object post-2025-09-03 API split."
+        },
+        "plan_artifact_parent_page_id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Notion page (not data_source) that hosts nested Plan #N artifact pages. Page-parent children carry only `title` as a custom property — used purely for human-readable Plan UX."
+        },
+        "api_version": {
+          "type": "string",
+          "default": "2026-03-11",
+          "description": "Pinned Notion API version. Bump only via decisions.md revisit trigger."
+        }
+      }
+    },
+    "local": {
+      "type": "object",
+      "required": ["sqlite_path", "log_dir", "jsonl_event_log"],
+      "additionalProperties": false,
+      "properties": {
+        "sqlite_path": {
+          "type": "string",
+          "default": "~/.claude/plantrace/state.db"
+        },
+        "chromadb_path": {
+          "type": "string",
+          "default": "~/.claude/plantrace/chroma",
+          "description": "Only consulted when classifier.mode == 'embedding'."
+        },
+        "log_dir": {
+          "type": "string",
+          "default": "~/.claude/plantrace/logs"
+        },
+        "jsonl_event_log": {
+          "type": "string",
+          "default": "~/.claude/plantrace/logs/events-{YYYY-MM-DD}.jsonl",
+          "description": "Raw hook payload append destination (Phase 1A). The `events` table in SQLite is the curated/idempotent projection (Phase 1B); this JSONL is the immutable raw trace."
+        }
+      }
+    },
+    "classifier": {
+      "type": "object",
+      "required": ["mode", "confidence_threshold", "fallback_prompt_user"],
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": ["manual", "embedding"],
+          "default": "manual",
+          "description": "v0.1 ships 'manual' as default. 'embedding' is gated behind explicit opt-in."
+        },
+        "embedding_model": {
+          "type": "string",
+          "default": "BAAI/bge-m3",
+          "description": "Only used when mode == 'embedding'. Loaded in-process via sentence-transformers."
+        },
+        "confidence_threshold": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.7
+        },
+        "fallback_prompt_user": {
+          "type": "boolean",
+          "default": true,
+          "description": "When confidence < threshold, ask the user to confirm placement instead of guessing."
+        }
+      }
+    },
+    "lenses": {
+      "type": "object",
+      "description": "Lens preset definitions. Built-in: software, research, content, ops. Users can add more here.",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["name", "values"],
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string" },
+          "values": {
+            "type": "array",
+            "items": { "type": "string" },
+            "minItems": 1,
+            "description": "Ordered list of lens tag values (e.g. ['vision','domain','module','dev_unit'])."
+          },
+          "description": { "type": "string" },
+          "enables_queries": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["coverage", "stale"]
+            },
+            "description": "Lens-specific slash commands this lens unlocks. v0.1 supports 'coverage' and 'stale' only on the Software lens."
+          }
+        }
+      }
+    },
+    "plain_language": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "tone": {
+          "type": "string",
+          "enum": ["plain", "friendly", "technical"],
+          "default": "plain"
+        },
+        "analogy_dictionary_path": {
+          "type": "string",
+          "description": "Path to a YAML/JSON of stable analogy mappings (e.g. 'MCP server' → '접수 창구'). Keeps generated plain-language consistent across nodes."
+        }
+      }
+    }
+  }
+}

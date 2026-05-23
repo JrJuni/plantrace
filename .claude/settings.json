@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "_comment": "Phase 0 spike instrumentation only — remove this hooks block once docs/evidence/hooks.md is filled in.",
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "ExitPlanMode|TodoWrite",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/echo_payload.ps1"
+          }
+        ]
+      }
+    ]
+  }
+}

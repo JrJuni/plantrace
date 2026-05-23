@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "project_type": "generic",
+  "notion": {
+    "workspace_id": "REPLACE_WITH_YOUR_WORKSPACE_ID",
+    "node_data_source_id": "REPLACE_WITH_YOUR_NODE_DATA_SOURCE_ID",
+    "plan_artifact_parent_page_id": "REPLACE_WITH_YOUR_PLAN_ARTIFACT_PARENT_PAGE_ID",
+    "api_version": "2026-03-11"
+  },
+  "local": {
+    "sqlite_path": "~/.claude/plantrace/state.db",
+    "chromadb_path": "~/.claude/plantrace/chroma",
+    "log_dir": "~/.claude/plantrace/logs",
+    "jsonl_event_log": "~/.claude/plantrace/logs/events-{YYYY-MM-DD}.jsonl"
+  },
+  "classifier": {
+    "mode": "manual",
+    "confidence_threshold": 0.7,
+    "fallback_prompt_user": true
+  },
+  "lenses": {
+    "software": {
+      "name": "Software",
+      "values": ["vision", "domain", "module", "dev_unit"],
+      "description": "Module = I/O + State + Output contract. Default lens for software projects.",
+      "enables_queries": ["coverage", "stale"]
+    },
+    "research": {
+      "name": "Research",
+      "values": ["question", "hypothesis", "evidence", "claim"]
+    },
+    "content": {
+      "name": "Content",
+      "values": ["theme", "section", "asset", "edit"]
+    },
+    "ops": {
+      "name": "Ops",
+      "values": ["incident", "cause", "mitigation", "follow_up"]
+    }
+  },
+  "plain_language": {
+    "tone": "plain"
+  }
+}

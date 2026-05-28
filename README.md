@@ -92,6 +92,12 @@ _Coming with v0.1. See [docs/roadmap.md](docs/roadmap.md)._
 
 - [docs/roadmap.md](docs/roadmap.md) — Now / Next / Later phases with exit criteria
 - [docs/decisions.md](docs/decisions.md) — Active design decisions with Revisit triggers
+- [docs/architecture.md](docs/architecture.md) — Surfaces, SQLite schema, hook pipeline, Notion projector
+- [docs/notion_db_schemas.md](docs/notion_db_schemas.md) — Plan artifact page (shipped) + Node data_source (Phase 1B)
+- [docs/commands.md](docs/commands.md) — Phase-by-phase command catalog (hooks, slash, dev/smoke)
+- [docs/playbook.md](docs/playbook.md) — Reusable patterns keyword index
+- [docs/lesson-learned.md](docs/lesson-learned.md) — Append-only log of what was tried and what stuck
+- [docs/security-audit.md](docs/security-audit.md) — Checklist + audit history
 - [docs/evidence/](docs/evidence/) — Empirical findings (hook payloads, Notion API behavior)
 - [README.ko.md](README.ko.md) — 한국어 빠른 확인용 (canonical은 영문판)
 

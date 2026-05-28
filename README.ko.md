@@ -87,6 +87,12 @@ _v0.1과 함께 제공. [docs/roadmap.md](docs/roadmap.md) 참조._
 
 - [docs/roadmap.md](docs/roadmap.md) — Now / Next / Later + 각 phase exit criteria
 - [docs/decisions.md](docs/decisions.md) — 활성 설계 결정 + Revisit triggers
+- [docs/architecture.md](docs/architecture.md) — surface, SQLite schema, hook pipeline, Notion projector
+- [docs/notion_db_schemas.md](docs/notion_db_schemas.md) — Plan artifact page (1A) + Node data_source (1B)
+- [docs/commands.md](docs/commands.md) — phase 별 command 카탈로그
+- [docs/playbook.md](docs/playbook.md) — 재사용 패턴 keyword index
+- [docs/lesson-learned.md](docs/lesson-learned.md) — append-only 시도/교훈 로그
+- [docs/security-audit.md](docs/security-audit.md) — 보안 체크리스트 + 감사 이력
 - [docs/evidence/](docs/evidence/) — 실증 발견 (hook payload, Notion API 동작)
 
 ---

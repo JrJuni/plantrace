@@ -41,6 +41,13 @@ def tmp_home(tmp_path, monkeypatch):
     monkeypatch.setattr(_db, "DEFAULT_DB_PATH", tmp_path / ".claude" / "plantrace" / "state.db")
     monkeypatch.setattr(_jsonl, "DEFAULT_LOG_DIR", tmp_path / ".claude" / "plantrace" / "logs")
 
+    # Force the config loader to look at the empty tmp_path instead of the real
+    # repo .claude/plantrace.json — otherwise hook tests pick up the real
+    # Notion config and try to project to live pages.
+    monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(tmp_path))
+    # Drop any inherited NOTION_TOKEN. Individual tests can re-set via setenv.
+    monkeypatch.delenv("NOTION_TOKEN", raising=False)
+
     before = _sentinel_mtime()
     yield tmp_path
     after = _sentinel_mtime()

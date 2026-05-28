@@ -137,6 +137,15 @@ def persist_plan(
 
 
 def main() -> int:
+    # Load project-local .env (NOTION_TOKEN etc.) before any os.environ read.
+    # No-op if python-dotenv isn't installed or no .env exists. override=False
+    # so monkeypatch.setenv in tests wins.
+    try:
+        from dotenv import load_dotenv
+        load_dotenv(override=False)
+    except ImportError:
+        pass
+
     # Read stdin as raw bytes + decode UTF-8 explicitly. Default sys.stdin
     # uses OEM code page on Windows (cp949 on Korean locale), which mojibake-corrupts
     # non-ASCII plan bodies. Empirically confirmed via Phase 0 evidence #1.

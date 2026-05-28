@@ -92,14 +92,18 @@ def test_persist_plan_creates_root_plus_children(tmp_db, tmp_log_dir):
         },
     }
     text = exit_plan_mode.extract_plan_text(payload)
-    root_id, child_ids = exit_plan_mode.persist_plan(payload, text)
+    root_record, child_records = exit_plan_mode.persist_plan(payload, text)
 
-    assert len(child_ids) == 2
+    assert len(child_records) == 2
+    assert root_record["title"] == "Bootstrap"
+    assert root_record["plan_local_label"] is None
+    assert [c["plan_local_label"] for c in child_records] == ["B1", "B2"]
+    assert [c["title"] for c in child_records] == ["Capture ExitPlanMode", "Write /why"]
 
     with sqlite3.connect(tmp_db) as raw:
         raw.row_factory = sqlite3.Row
         root = raw.execute(
-            "SELECT * FROM nodes WHERE internal_id = ?", (root_id,)
+            "SELECT * FROM nodes WHERE internal_id = ?", (root_record["internal_id"],)
         ).fetchone()
         assert root["title"] == "Bootstrap"
         assert root["parent_id"] is None
@@ -109,7 +113,7 @@ def test_persist_plan_creates_root_plus_children(tmp_db, tmp_log_dir):
 
         children = raw.execute(
             "SELECT * FROM nodes WHERE parent_id = ? ORDER BY plan_local_label",
-            (root_id,),
+            (root_record["internal_id"],),
         ).fetchall()
         assert [c["title"] for c in children] == ["Capture ExitPlanMode", "Write /why"]
         assert [c["plan_local_label"] for c in children] == ["B1", "B2"]
@@ -121,18 +125,18 @@ def test_why_walks_up_to_root(tmp_db, tmp_log_dir):
         "tool_response": {"plan": "# Root\n- [ ] Child task\n"},
     }
     text = exit_plan_mode.extract_plan_text(payload)
-    root_id, child_ids = exit_plan_mode.persist_plan(payload, text)
+    root_record, child_records = exit_plan_mode.persist_plan(payload, text)
 
     with db.init_db(tmp_db) as conn:
-        chain = why.walk_up(conn, child_ids[0])
+        chain = why.walk_up(conn, child_records[0]["internal_id"])
 
-    assert [r["internal_id"] for r in chain] == [child_ids[0], root_id]
+    assert [r["internal_id"] for r in chain] == [child_records[0]["internal_id"], root_record["internal_id"]]
     rendered = why.render(chain)
     assert "Child task" in rendered
     assert "Root" in rendered
 
 
-def test_main_appends_jsonl_event_log(tmp_db, tmp_log_dir, monkeypatch):
+def test_main_appends_jsonl_event_log(tmp_path, tmp_db, monkeypatch):
     payload = {
         "tool_name": "ExitPlanMode",
         "tool_response": {"plan": "# X\n- [ ] one\n"},
@@ -141,17 +145,31 @@ def test_main_appends_jsonl_event_log(tmp_db, tmp_log_dir, monkeypatch):
     rc = exit_plan_mode.main()
     assert rc == 0
 
-    log_files = list(tmp_log_dir.glob("events-*.jsonl"))
-    assert log_files, "expected at least one events-*.jsonl"
+    # The hook reads log_dir from config_mod.load_config(); with autouse tmp_home
+    # patching Path.home to tmp_path, the default log_dir is at tmp_path/.claude/plantrace/logs.
+    log_dir = Path.home() / ".claude" / "plantrace" / "logs"
+    log_files = list(log_dir.glob("events-*.jsonl"))
+    assert log_files, f"expected at least one events-*.jsonl under {log_dir}"
     lines = log_files[0].read_text(encoding="utf-8").strip().splitlines()
     events = [json.loads(ln)["event"] for ln in lines]
     assert "exit_plan_mode.received" in events
     assert "exit_plan_mode.persisted" in events
 
 
+class _StdinBuffer:
+    def __init__(self, data: bytes):
+        self._data = data
+
+    def read(self) -> bytes:
+        return self._data
+
+
 class _stdin:
+    """Minimal sys.stdin double — hook reads via sys.stdin.buffer.read() (UTF-8 bytes)."""
+
     def __init__(self, text: str):
         self._text = text
+        self.buffer = _StdinBuffer(text.encode("utf-8"))
 
     def read(self) -> str:
         return self._text

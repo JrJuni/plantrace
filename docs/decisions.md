@@ -33,7 +33,6 @@
 
 ## Open questions (to resolve at named milestones)
 
-- **Product naming** — required before launch (candidates: PlanGraph / WhyMap / Lattice / 궤적 / TBD)
 - **Lens-aware queries beyond software** — verify during dogfood whether research/content/ops lenses need their own `/coverage`-equivalent queries
 - **Notion page icon API write rate limit** — confirm during Phase 1B verification
 - **`/why` output depth** — parent chain only vs. source provenance included — decide after Phase 1A self-use

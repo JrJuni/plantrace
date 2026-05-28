@@ -216,3 +216,6 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# PlanTrace project-local config (contains workspace IDs)
+.claude/plantrace.json

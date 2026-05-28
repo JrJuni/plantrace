@@ -1,10 +1,19 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
-  "_comment": "Phase 0 spike instrumentation only — remove this hooks block once docs/evidence/hooks.md is filled in.",
+  "_comment": "ExitPlanMode → plantrace-hook (Phase 1A operational). TodoWrite → echo_payload spike (removed after P0.4 evidence captured).",
   "hooks": {
     "PostToolUse": [
       {
-        "matcher": "ExitPlanMode|TodoWrite",
+        "matcher": "ExitPlanMode",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python -m plantrace.hooks.exit_plan_mode"
+          }
+        ]
+      },
+      {
+        "matcher": "TodoWrite",
         "hooks": [
           {
             "type": "command",

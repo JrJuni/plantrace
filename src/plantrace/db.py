@@ -50,7 +50,11 @@ CREATE TABLE IF NOT EXISTS schema_meta (
 SCHEMA_VERSION = "1"
 
 
-def connect(db_path: Path = DEFAULT_DB_PATH) -> sqlite3.Connection:
+def connect(db_path: Path | None = None) -> sqlite3.Connection:
+    # Resolve the default at call time, not import time, so monkeypatching
+    # DEFAULT_DB_PATH in tests / hook config actually takes effect for callers
+    # that pass no argument.
+    db_path = db_path or DEFAULT_DB_PATH
     db_path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(db_path)
     conn.execute("PRAGMA foreign_keys = ON")
@@ -58,7 +62,8 @@ def connect(db_path: Path = DEFAULT_DB_PATH) -> sqlite3.Connection:
     return conn
 
 
-def init_db(db_path: Path = DEFAULT_DB_PATH) -> sqlite3.Connection:
+def init_db(db_path: Path | None = None) -> sqlite3.Connection:
+    db_path = db_path or DEFAULT_DB_PATH
     conn = connect(db_path)
     conn.executescript(_SCHEMA)
     conn.execute(

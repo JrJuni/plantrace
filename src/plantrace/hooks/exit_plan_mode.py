@@ -23,7 +23,9 @@ import re
 import sys
 from pathlib import Path
 
+from plantrace import config as config_mod
 from plantrace import db, ids, jsonl
+from plantrace.notion import projector as notion_projector
 
 
 CHECKLIST_RE = re.compile(r"^\s*-\s*\[[ xX]\]\s+(.+?)\s*$", re.MULTILINE)
@@ -34,16 +36,21 @@ def extract_plan_text(payload: dict) -> str | None:
     """Resolve plan markdown from the PostToolUse payload.
 
     Tries (in order):
-    1. tool_response.plan        — Round 3 external AI claim
-    2. tool_input.plan           — fallback if shape differs
-    3. read from tool_response.plan_file_path
+    1. tool_response.plan        — primary (Phase 0 evidence #1 confirmed)
+    2. tool_response.filePath    — read file (camelCase; observed in evidence)
+    3. tool_response.plan_file_path / planFilePath — snake/camel aliases (defensive)
+    4. tool_input.plan           — never observed but kept for safety
     Returns None if nothing resolvable — caller logs and exits cleanly.
     """
     response = payload.get("tool_response") or {}
     if isinstance(response, dict):
         if isinstance(response.get("plan"), str) and response["plan"].strip():
             return response["plan"]
-        path = response.get("plan_file_path") or response.get("planFilePath")
+        path = (
+            response.get("filePath")
+            or response.get("plan_file_path")
+            or response.get("planFilePath")
+        )
         if isinstance(path, str) and Path(path).is_file():
             return Path(path).read_text(encoding="utf-8")
     tool_input = payload.get("tool_input") or {}
@@ -71,14 +78,21 @@ def split_children(plan_text: str) -> tuple[str, list[str]]:
     return root_title, children
 
 
-def persist_plan(payload: dict, plan_text: str) -> tuple[str, list[str]]:
-    """Insert root + children into SQLite. Returns (root_id, child_ids)."""
+def persist_plan(
+    payload: dict, plan_text: str, db_path=None
+) -> tuple[dict, list[dict]]:
+    """Insert root + children into SQLite. Returns (root_record, child_records).
+
+    Records are plain dicts carrying the fields the Notion projector needs
+    (`internal_id`, `title`, `plan_local_label`) so the projector does not
+    have to re-query SQLite.
+    """
     root_title, child_titles = split_children(plan_text)
     plan_id = ids.new_plan_id()
     session = (payload.get("session_id") or "")[:64] or None
 
     root_id = ids.new_node_id()
-    with db.init_db() as conn:
+    with db.init_db(db_path) as conn:
         db.insert_node(
             conn,
             internal_id=root_id,
@@ -92,7 +106,7 @@ def persist_plan(payload: dict, plan_text: str) -> tuple[str, list[str]]:
             source_ai="claude-code",
             plan_local_label=None,
         )
-        child_ids: list[str] = []
+        child_records: list[dict] = []
         for idx, title in enumerate(child_titles, start=1):
             child_id = ids.new_node_id()
             db.insert_node(
@@ -108,32 +122,59 @@ def persist_plan(payload: dict, plan_text: str) -> tuple[str, list[str]]:
                 source_ai="claude-code",
                 plan_local_label=f"B{idx}",
             )
-            child_ids.append(child_id)
+            child_records.append(
+                {"internal_id": child_id, "title": title, "plan_local_label": f"B{idx}"}
+            )
         conn.commit()
-    return root_id, child_ids
+
+    root_record = {
+        "internal_id": root_id,
+        "title": root_title,
+        "plan_local_label": None,
+        "source_plan_id": plan_id,
+    }
+    return root_record, child_records
 
 
 def main() -> int:
-    raw = sys.stdin.read()
+    # Read stdin as raw bytes + decode UTF-8 explicitly. Default sys.stdin
+    # uses OEM code page on Windows (cp949 on Korean locale), which mojibake-corrupts
+    # non-ASCII plan bodies. Empirically confirmed via Phase 0 evidence #1.
+    raw = sys.stdin.buffer.read().decode("utf-8", errors="replace")
+    cfg = config_mod.load_config()
+    log_dir = cfg.log_dir
+
     try:
         payload = json.loads(raw) if raw.strip() else {}
     except json.JSONDecodeError:
-        jsonl.append_event({"event": "exit_plan_mode.parse_error", "raw": raw})
+        jsonl.append_event({"event": "exit_plan_mode.parse_error", "raw": raw}, log_dir=log_dir)
         return 0
 
-    jsonl.append_event({"event": "exit_plan_mode.received", "payload": payload})
+    jsonl.append_event({"event": "exit_plan_mode.received", "payload": payload}, log_dir=log_dir)
 
     plan_text = extract_plan_text(payload)
     if not plan_text:
-        jsonl.append_event({"event": "exit_plan_mode.no_plan_text"})
+        jsonl.append_event({"event": "exit_plan_mode.no_plan_text"}, log_dir=log_dir)
         return 0
 
-    root_id, child_ids = persist_plan(payload, plan_text)
-    jsonl.append_event({
-        "event": "exit_plan_mode.persisted",
-        "root_id": root_id,
-        "child_count": len(child_ids),
-    })
+    root_record, child_records = persist_plan(payload, plan_text, db_path=cfg.sqlite_path)
+    jsonl.append_event(
+        {
+            "event": "exit_plan_mode.persisted",
+            "root_id": root_record["internal_id"],
+            "child_count": len(child_records),
+        },
+        log_dir=log_dir,
+    )
+
+    try:
+        notion_projector.project_plan(root_record, child_records, plan_text, cfg)
+    except Exception as exc:
+        jsonl.append_event(
+            {"event": "notion.projection_exception", "error": f"{type(exc).__name__}: {str(exc)[:500]}"},
+            log_dir=log_dir,
+        )
+
     return 0
 
 

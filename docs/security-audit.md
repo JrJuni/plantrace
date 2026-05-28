@@ -8,10 +8,12 @@ Security checklist + audit log. Tailored to a tool whose blast radius is "the us
 
 ### Secret management
 
-- [x] `.env` is in `.gitignore` (no `.env` is currently used — `NOTION_TOKEN` is read from process env directly; if a future component needs `.env`, this check must pass before merge)
+- [x] `.env` is in `.gitignore` (Phase 1A: `.env` is in active use — hook calls `load_dotenv(override=False)` at entry point; the file holds `NOTION_TOKEN` and lives at project root, gitignored via the global `.env` rule. Verified: `git check-ignore -v .env` resolves to `.gitignore:151`.)
+- [x] `.claude/plantrace.json` is in `.gitignore` (contains real `plan_artifact_parent_page_id` and `workspace_id` slots — added explicitly under the Streamlit section as PlanTrace project-local config.)
 - [ ] No API key has ever been written to code, logs, or `outputs/` in plaintext (audit before each release)
 - [ ] Stack traces in JSONL events do not include secrets — `notion_projector` already truncates response bodies to 500 chars (`stage: create`, `stage: append` events). Re-verify when adding new event types.
 - [ ] Git history has no accidentally committed secrets (`git log -p | rg -i "notion|token|key"` spot-check before each tag)
+- [x] **Token scope**: Phase 1A reuses the `coldcall-agent` workspace-level integration from bd-coldcall-agent (same Notion workspace). External users (Phase 2+) will issue their own integration during `/init`. Document this clearly in the v0.1 onboarding so external token storage stays project-local — never user-scoped via `setx` in shared environments.
 
 ### External input handling (Prompt injection)
 
@@ -40,7 +42,7 @@ PlanTrace ingests plan text written by an AI. That text will, in later phases, b
 
 - [x] Hook never raises to the parent Claude Code session — every failure path returns 0 with a JSONL event. Confirmed in `src/plantrace/hooks/exit_plan_mode.py::main`.
 - [x] Hook does not block on Notion — projection runs after SQLite commit. Failure leaves SQLite consistent.
-- [ ] Hook execution time stays within the Claude Code hook timeout (Phase 0 spike's question #4). Confirm SQLite + JSONL + Notion-skip path completes well under the limit; budget for slow Notion writes when projection is enabled.
+- [x] Hook execution time stays within the Claude Code hook timeout — Phase 1A manual smoke: skip path completes in O(ms), Notion projection path completes in ~1-2s on a single page POST. Well within typical 30-60s hook timeouts. Re-measure when Notion children chunking exceeds 100 blocks (multiple PATCH calls).
 - [x] stdin decoded as UTF-8 with `errors="replace"` to defend against Windows OEM-codepage (cp949) mojibake. Confirmed in `exit_plan_mode.py::main`.
 
 ### Output / on-disk artifacts
